@@ -1,0 +1,86 @@
+---
+#######################################################################
+# Install Docker and deploy monitoring stack
+#######################################################################
+- name: Deploy monitoring stack
+  hosts: all
+  become: true
+  tasks:
+
+    #-----------------------------------------------------------------
+    # STEP 1: Install Docker
+    #-----------------------------------------------------------------
+    - name: Install required packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker packages
+      apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    #-----------------------------------------------------------------
+    # STEP 2: Copy metrics folder to VM
+    #-----------------------------------------------------------------
+    - name: Create metrics directory
+      file:
+        path: /home/ubuntu/metrics
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy metrics files
+      copy:
+        src: "{{ item }}"
+        dest: /home/ubuntu/metrics/
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+      loop:
+        - ../../metrics/docker-compose.yaml
+        - ../../metrics/prometheus.yml
+        - ../../metrics/rules.yml
+        - ../../metrics/nginx.conf
+
+    #-----------------------------------------------------------------
+    # STEP 3: Run docker compose
+    #-----------------------------------------------------------------
+    - name: Run docker compose up
+      command: docker compose up -d
+      args:
+        chdir: /home/ubuntu/metrics
