@@ -1,0 +1,12 @@
+groups:
+  - name: Node
+    interval: 15s
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Высокая загрузка CPU на {{ $labels.instance }}"
+          description: "CPU загружен на {{ printf \"%.1f\" $value }}% в течение 5 минут"

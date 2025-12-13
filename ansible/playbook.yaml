@@ -6,7 +6,6 @@
   hosts: all
   become: true
   tasks:
-
     #-----------------------------------------------------------------
     # STEP 1: Install Docker
     #-----------------------------------------------------------------
@@ -62,7 +61,7 @@
         state: directory
         owner: ubuntu
         group: ubuntu
-        mode: '0755'
+        mode: "0755"
 
     - name: Copy metrics files
       copy:
@@ -70,12 +69,12 @@
         dest: /home/ubuntu/metrics/
         owner: ubuntu
         group: ubuntu
-        mode: '0644'
+        mode: "0644"
       loop:
-        - ../../metrics/docker-compose.yaml
-        - ../../metrics/prometheus.yml
-        - ../../metrics/rules.yml
-        - ../../metrics/nginx.conf
+        - ./metrics/docker-compose.yaml
+        - ./metrics/prometheus.yml
+        - ./metrics/rules.yml
+        - ./metrics/nginx.conf
 
     #-----------------------------------------------------------------
     # STEP 3: Run docker compose
