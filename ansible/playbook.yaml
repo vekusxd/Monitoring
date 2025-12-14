@@ -76,6 +76,14 @@
         - ./metrics/rules.yml
         - ./metrics/nginx.conf
 
+    - name: Set vm.max_map_count for Elasticsearch
+      sysctl:
+        name: vm.max_map_count
+        value: "262144"
+        state: present
+        sysctl_set: yes
+        reload: yes
+
     #-----------------------------------------------------------------
     # STEP 3: Run docker compose
     #-----------------------------------------------------------------
