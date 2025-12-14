@@ -1,0 +1,92 @@
+@startuml deployment
+!theme plain
+title Диаграмма развёртывания в Yandex Cloud
+
+skinparam node {
+    BackgroundColor<<cloud>> AliceBlue
+    BackgroundColor<<network>> LightCyan
+    BackgroundColor<<vm>> LightGoldenRodYellow
+    BackgroundColor<<container>> White
+}
+
+cloud "Yandex Cloud" <<cloud>> {
+
+    node "VPC: monitoring-network" <<network>> {
+
+        node "Subnet: monitoring-subnet\n192.168.20.0/24" <<network>> {
+
+            node "VM: monitoring\nUbuntu 22.04 LTS\n4 CPU | 4 GB RAM | 30 GB SSD" <<vm>> as vm {
+
+                node "Docker Engine" <<container>> {
+
+                    artifact "prometheus:latest" as prometheus {
+                        portout 9090
+                    }
+
+                    artifact "grafana/grafana" as grafana {
+                        portout 3000
+                    }
+
+                    artifact "prom/alertmanager" as alertmanager {
+                        portout 9093
+                    }
+
+                    artifact "prom/node-exporter" as node_exporter {
+                        portout 9100
+                    }
+
+                    artifact "nginx" as nginx {
+                        portout 80
+                    }
+
+                    artifact "nginx/nginx-prometheus-exporter" as nginx_exporter {
+                        portout 9113
+                    }
+
+                    artifact "postgres:17" as postgres {
+                        portout 5432
+                    }
+
+                    artifact "prometheuscommunity/postgres-exporter" as postgres_exporter {
+                        portout 9187
+                    }
+
+                    artifact "sonarqube:lts-community" as sonarqube {
+                        portout 9001
+                    }
+
+                    database "Named Volumes" {
+                        storage "grafana-data"
+                        storage "sonarqube_*"
+                        storage "sonar_db*"
+                    }
+                }
+            }
+        }
+    }
+}
+
+actor "Пользователь" as user
+actor "DevOps инженер" as devops
+
+' Внешний доступ
+user --> grafana : HTTP :3000
+user --> prometheus : HTTP :9090
+user --> alertmanager : HTTP :9093
+user --> sonarqube : HTTP :9001
+user --> nginx : HTTP :80
+
+devops --> vm : SSH :22
+
+note right of vm
+    **Публичный IP:** NAT enabled
+    **Внутренний IP:** 192.168.20.x
+    **Тип:** Preemptible (прерываемая)
+end note
+
+note bottom of postgres
+    База данных для SonarQube
+    Credentials: postgres/password
+end note
+
+@enduml

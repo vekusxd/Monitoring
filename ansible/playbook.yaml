@@ -1,14 +1,8 @@
 ---
-#######################################################################
-# Install Docker and deploy monitoring stack
-#######################################################################
 - name: Deploy monitoring stack
   hosts: all
   become: true
   tasks:
-    #-----------------------------------------------------------------
-    # STEP 1: Install Docker
-    #-----------------------------------------------------------------
     - name: Install required packages
       apt:
         pkg:
@@ -52,9 +46,6 @@
         groups: docker
         append: yes
 
-    #-----------------------------------------------------------------
-    # STEP 2: Copy metrics folder to VM
-    #-----------------------------------------------------------------
     - name: Create metrics directory
       file:
         path: /home/ubuntu/metrics
@@ -84,9 +75,6 @@
         sysctl_set: yes
         reload: yes
 
-    #-----------------------------------------------------------------
-    # STEP 3: Run docker compose
-    #-----------------------------------------------------------------
     - name: Run docker compose up
       command: docker compose up -d
       args:

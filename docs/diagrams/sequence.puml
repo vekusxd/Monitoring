@@ -1,0 +1,124 @@
+@startuml sequence
+!theme plain
+title Последовательность развёртывания (make up)
+
+actor "DevOps\nинженер" as user
+participant "Makefile" as makefile
+participant "acquire_tokens.sh" as acquire
+participant "YC CLI" as yc
+participant "cloud_up.sh" as cloud_up
+participant "Terraform" as terraform
+participant "Yandex Cloud" as yandex
+participant "install.sh" as install
+participant "Ansible" as ansible
+participant "VM" as vm
+participant "Docker Compose" as docker
+
+== Этап 1: Получение токенов ==
+
+user -> makefile : make up
+activate makefile
+
+makefile -> acquire : acquire-tokens
+activate acquire
+
+acquire -> yc : yc iam create-token
+yc --> acquire : IAM token
+
+acquire -> yc : yc config get cloud-id
+yc --> acquire : cloud_id
+
+acquire -> yc : yc config get folder-id
+yc --> acquire : folder_id
+
+acquire --> acquire : Создание secret.tfvars
+note right: yc_token = "..."\nyc_cloud_id = "..."\nyc_folder_id = "..."
+
+deactivate acquire
+
+== Этап 2: Создание инфраструктуры ==
+
+makefile -> cloud_up : cloud-up
+activate cloud_up
+
+cloud_up -> terraform : terraform init
+terraform --> cloud_up : Initialized
+
+cloud_up -> terraform : terraform validate
+terraform --> cloud_up : Valid
+
+cloud_up -> terraform : terraform apply -var-file=secret.tfvars
+activate terraform
+
+terraform -> yandex : Create VPC Network
+yandex --> terraform : network created
+
+terraform -> yandex : Create Subnet
+yandex --> terraform : subnet created
+
+terraform -> yandex : Create VM Instance
+note right of yandex: Ubuntu 22.04\n4 CPU, 4GB RAM\n30GB SSD
+
+yandex --> terraform : VM created\nexternal_ip, internal_ip
+
+deactivate terraform
+
+cloud_up --> cloud_up : Генерация inventory.yaml
+note right: ansible_host: <external_ip>\ninternal_ip: <internal_ip>
+
+cloud_up --> makefile : Infrastructure ready
+deactivate cloud_up
+
+== Этап 3: Развёртывание мониторинга ==
+
+makefile -> install : install
+activate install
+
+install -> install : sleep 30
+note right: Ожидание загрузки VM
+
+install -> ansible : ansible-playbook playbook.yaml
+activate ansible
+
+ansible -> vm : SSH подключение
+activate vm
+
+ansible -> vm : Установка Docker
+note right of vm: apt install docker-ce\ndocker-compose-plugin
+
+ansible -> vm : Копирование конфигов
+note right of vm: docker-compose.yaml\nprometheus.yml\nrules.yml\nnginx.conf
+
+ansible -> vm : sysctl vm.max_map_count=262144
+note right: Для SonarQube
+
+ansible -> docker : docker compose up -d
+activate docker
+
+docker -> docker : Запуск контейнеров
+note right of docker
+    - prometheus
+    - grafana
+    - alertmanager
+    - node-exporter
+    - nginx
+    - nginx-exporter
+    - postgres
+    - postgres-exporter
+    - sonarqube
+end note
+
+docker --> ansible : Containers started
+deactivate docker
+deactivate vm
+deactivate ansible
+
+install --> makefile : Deployment complete
+deactivate install
+
+makefile --> user : URLs сервисов
+note right: Grafana: http://<IP>:3000\nPrometheus: http://<IP>:9090\nAlertmanager: http://<IP>:9093
+
+deactivate makefile
+
+@enduml

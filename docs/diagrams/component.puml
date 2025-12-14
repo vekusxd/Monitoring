@@ -1,0 +1,70 @@
+@startuml component
+!theme plain
+title Диаграмма компонентов мониторинг-стека
+
+skinparam component {
+    BackgroundColor<<monitoring>> LightBlue
+    BackgroundColor<<exporter>> LightGreen
+    BackgroundColor<<database>> LightYellow
+    BackgroundColor<<web>> LightCoral
+}
+
+package "Docker Compose Stack" {
+
+    package "Мониторинг" <<Rectangle>> {
+        component [Prometheus\n:9090] <<monitoring>> as prometheus
+        component [Grafana\n:3000] <<monitoring>> as grafana
+        component [Alertmanager\n:9093] <<monitoring>> as alertmanager
+    }
+
+    package "Экспортёры метрик" <<Rectangle>> {
+        component [Node Exporter\n:9100] <<exporter>> as node_exporter
+        component [Nginx Exporter\n:9113] <<exporter>> as nginx_exporter
+        component [Postgres Exporter\n:9187] <<exporter>> as postgres_exporter
+    }
+
+    package "Приложения" <<Rectangle>> {
+        component [Nginx\n:80] <<web>> as nginx
+        component [SonarQube\n:9001] <<web>> as sonarqube
+    }
+
+    package "База данных" <<Rectangle>> {
+        database [PostgreSQL\n:5432] <<database>> as postgres
+    }
+}
+
+' Prometheus собирает метрики
+prometheus <-- node_exporter : /metrics
+prometheus <-- nginx_exporter : /metrics
+prometheus <-- postgres_exporter : /metrics
+
+' Grafana визуализирует данные из Prometheus
+grafana --> prometheus : PromQL запросы
+
+' Alertmanager получает алерты от Prometheus
+prometheus --> alertmanager : алерты
+
+' Экспортёры получают данные от сервисов
+nginx_exporter --> nginx : /stub_status
+postgres_exporter --> postgres : SQL метрики
+
+' SonarQube использует PostgreSQL
+sonarqube --> postgres : JDBC
+
+' Легенда
+legend right
+    |= Цвет |= Тип компонента |
+    |<#LightBlue>| Мониторинг |
+    |<#LightGreen>| Экспортёр |
+    |<#LightYellow>| База данных |
+    |<#LightCoral>| Веб-приложение |
+endlegend
+
+note bottom of prometheus
+    Центральный компонент.
+    Собирает метрики каждые 15 сек.
+    Хранит временные ряды.
+    Проверяет правила алертинга.
+end note
+
+@enduml
